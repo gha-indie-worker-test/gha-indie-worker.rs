@@ -10,7 +10,8 @@ production credentials or production network authority.
 - Test-only additions: the fail-closed test-organization manifest, its
   digest-bound isolation workflow, separate native and fixed-profile custom
   meta workflows, a dated workflow-policy exception for the profile-owned
-  timeout, and a synthetic `.invalid` repository URL in the protocol fixture
+  timeout, and a dated isolation exception for a non-resolving test-org URL in
+  the protocol-format fixture
 
 Execution through the custom clone/worker lane must bind this repository to a
 full immutable commit SHA, an exact allowlisted workflow path, and a fixed
