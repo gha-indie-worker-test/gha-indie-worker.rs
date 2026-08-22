@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "exceptions": [
+    {
+      "rule_id": "GHW003",
+      "path": ".github/workflows/gha-indie-worker-custom.yml",
+      "job": "gha-indie-custom-self-test",
+      "owner": "@ORESoftware",
+      "rationale": "The independent declaration is never the execution authority; the fixed rust-verify profile owns the bounded runtime.",
+      "expires": "2026-11-20"
+    }
+  ]
+}
