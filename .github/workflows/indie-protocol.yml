@@ -133,7 +133,7 @@ jobs:
 
           bindings = {
               "schemaVersion": "gha-indie-worker.bindings.v1",
-              "repositoryUrl": "https://github.com/gha-indie-worker/example.git",
+              "repositoryUrl": "https://gha-indie-worker-test.invalid/example.git",
               "commitSha": "0123456789abcdef0123456789abcdef01234567",
               "profileCatalogDigest": os.environ["CATALOG_DIGEST"],
               "jobs": {

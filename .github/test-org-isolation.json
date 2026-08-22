@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "namespace_prefix": "gha-indie-worker-test",
+  "domain_suffix": "gha-indie-worker.invalid",
+  "service_account_prefix": "gha-indie-worker-test",
+  "storage_prefix": "test/gha-indie-worker/",
+  "outbound_send_enabled": false,
+  "outbound_rate_limit_per_minute": 0,
+  "production_connectivity_enabled": false
+}
