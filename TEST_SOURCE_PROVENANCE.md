@@ -6,7 +6,7 @@ production credentials or production network authority.
 
 - Canonical source: `gha-indie-worker/gha-indie-worker.rs`
 - Imported branch: `dev`
-- Imported commit: `e39c00bb86f625ef3ccb8343fd693f88e382e3e7`
+- Imported commit: `775fd8cf50c5444dd230afb1436651e6ba1d5671`
 - Test-only additions: the fail-closed test-organization manifest, its
   digest-bound isolation workflow, separate native and fixed-profile custom
   meta workflows, a dated workflow-policy exception for the profile-owned
