@@ -1,0 +1,137 @@
+name: TJSV IndieBuild peer-authority e2e
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  peer-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact consumer head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Check out immutable IndieBuild authorities
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: gha-indie-worker/gha-indie-worker-interfaces
+          ref: 4f0fa02a4a83c54ee669c45e966c9baeec5777ae
+          path: _authority
+          persist-credentials: false
+
+      - name: Check out immutable TJSV
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ORESoftware/typespec-json-schema-validator
+          ref: 93dd73cb246a09b0a1c62d7192cc62ca6ecbe405
+          path: _tjsv
+          persist-credentials: false
+
+      - name: Verify exact source revisions
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git -C _authority rev-parse HEAD)" = "4f0fa02a4a83c54ee669c45e966c9baeec5777ae"
+          test "$(git -C _tjsv rev-parse HEAD)" = "93dd73cb246a09b0a1c62d7192cc62ca6ecbe405"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: _tjsv/package-lock.json
+
+      - name: Install TJSV toolchain
+        run: npm ci --prefix _tjsv --no-audit --no-fund
+
+      - name: Compile TypeSpec and compare authored JSON Schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tjsv-evidence
+          ln -s "$GITHUB_WORKSPACE/_tjsv/node_modules" node_modules
+          node _tjsv/bin/typespec-json-schema-validator.mjs check \
+            --typespec=_authority/contracts/indiebuild.tsp \
+            --schema=_authority/contracts/indiebuild.schema.json \
+            --instances=_authority/contracts/indiebuild-instances \
+            --report=.tjsv-evidence/report.json \
+            --sarif=.tjsv-evidence/report.sarif \
+            --contract-ir=.tjsv-evidence/contract-ir.json \
+            --output-dir=.tjsv-evidence/generated \
+            --quiet
+          test -s .tjsv-evidence/generated/typespec.generated.schema.json
+
+      - name: Require symmetric first-class authority evidence
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const r = JSON.parse(fs.readFileSync('.tjsv-evidence/report.json', 'utf8'));
+          const g = JSON.parse(fs.readFileSync('.tjsv-evidence/generated/typespec.generated.schema.json', 'utf8'));
+          const a = JSON.parse(fs.readFileSync('_authority/contracts/indiebuild.schema.json', 'utf8'));
+          if (r.status !== 'passed' || r.zeroUnexplainedFindings !== true) throw new Error('IndieBuild peer parity failed');
+          if (r.authorities?.precedence !== 'none') throw new Error('authority precedence drift');
+          if (r.authorities?.typespec?.authority !== 'independently-authored') throw new Error('TypeSpec is not first-class');
+          if (r.authorities?.jsonSchema?.authority !== 'independently-authored') throw new Error('JSON Schema is not first-class');
+          if (r.authorities?.typespec?.generatedJsonSchemaRole !== 'comparison-evidence-only') throw new Error('generated schema role drift');
+          const d = r.differential?.summary;
+          if (r.coverage?.differentialInstanceValidation !== true || !d || d.probesEvaluated < 1 || d.divergences !== 0 || d.refusals !== 0) throw new Error('generated/authored JSON comparison incomplete');
+          if (g.$schema !== 'https://json-schema.org/draft/2020-12/schema') throw new Error('generated witness must be Draft 2020-12');
+          if (a.$schema !== 'https://json-schema.org/draft/2020-12/schema') throw new Error('authored authority must be Draft 2020-12');
+          NODE
+
+      - name: Reject TypeSpec-only drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp _authority/contracts/indiebuild.tsp "$RUNNER_TEMP/typespec-drift.tsp"
+          printf '\nmodel IndieBuildConsumerOnlyDrift { marker: string; }\n' >> "$RUNNER_TEMP/typespec-drift.tsp"
+          if node _tjsv/bin/typespec-json-schema-validator.mjs check \
+            --typespec="$RUNNER_TEMP/typespec-drift.tsp" \
+            --schema=_authority/contracts/indiebuild.schema.json \
+            --report="$RUNNER_TEMP/typespec-drift-report.json" \
+            --quiet; then
+            echo 'TypeSpec-only drift incorrectly passed' >&2
+            exit 1
+          fi
+
+      - name: Reject JSON-Schema-only drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const p = '_authority/contracts/indiebuild.schema.json';
+          const s = JSON.parse(fs.readFileSync(p, 'utf8'));
+          s.$defs.IndieBuildConsumerOnlyDrift = {type:'object', properties:{marker:{type:'string'}}, required:['marker'], unevaluatedProperties:false};
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/schema-drift.json', JSON.stringify(s, null, 2));
+          NODE
+          if node _tjsv/bin/typespec-json-schema-validator.mjs check \
+            --typespec=_authority/contracts/indiebuild.tsp \
+            --schema="$RUNNER_TEMP/schema-drift.json" \
+            --report="$RUNNER_TEMP/schema-drift-report.json" \
+            --quiet; then
+            echo 'JSON-Schema-only drift incorrectly passed' >&2
+            exit 1
+          fi
+
+      - name: Retain parity evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: indiebuild-peer-authority-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .tjsv-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
