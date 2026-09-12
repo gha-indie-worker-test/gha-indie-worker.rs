@@ -67,6 +67,13 @@ jobs:
         working-directory: .tjsv-tool
         run: npm ci --omit=dev
 
+      - name: Expose the pinned TypeSpec toolchain to consumer package resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e node_modules
+          ln -s .tjsv-tool/node_modules node_modules
+
       - name: Native TypeSpec lane compiles
         shell: bash
         run: >-
