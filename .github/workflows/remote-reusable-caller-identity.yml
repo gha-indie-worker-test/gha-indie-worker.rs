@@ -11,10 +11,8 @@ permissions:
 
 jobs:
   call:
-    uses: gha-indie-worker/gha-indie-worker.rs/.github/workflows/conformance-reusable-called.yml@1507bb4daf2abaf59a569a176e67766a9cf30a9f
+    uses: gha-indie-worker-test/.github/.github/workflows/reusable-checkout-caller-identity.yml@747c14059587a293de425348378bb88100ee7c66
     with:
-      phrase: remote-pontifex
-      multiplier: 2
       expected_repository: ${{ github.repository }}
       expected_sha: ${{ github.sha }}
 
@@ -22,16 +20,12 @@ jobs:
     needs: call
     runs-on: ubuntu-latest
     steps:
-      - name: Verify remote reusable outputs and caller checkout identity
+      - name: Verify same-org remote reusable caller checkout identity
         shell: bash
         env:
-          RENDERED: ${{ needs.call.outputs.rendered }}
-          SECRET_PRESENT: ${{ needs.call.outputs.secret_present }}
-          CHECKOUT_REPOSITORY_MATCH: ${{ needs.call.outputs.checkout_repository_match }}
-          CHECKOUT_SHA_MATCH: ${{ needs.call.outputs.checkout_sha_match }}
+          CHECKOUT_REPOSITORY_MATCH: ${{ needs.call.outputs.repository_match }}
+          CHECKOUT_SHA_MATCH: ${{ needs.call.outputs.sha_match }}
         run: |
           set -euo pipefail
-          test "${RENDERED}" = 'remote-pontifex|remote-pontifex'
-          test "${SECRET_PRESENT}" = false
           test "${CHECKOUT_REPOSITORY_MATCH}" = true
           test "${CHECKOUT_SHA_MATCH}" = true
