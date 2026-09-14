@@ -1,0 +1,31 @@
+name: remote reusable caller identity
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/remote-reusable-caller-identity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  call:
+    uses: gha-indie-worker-test/.github/.github/workflows/reusable-checkout-caller-identity.yml@747c14059587a293de425348378bb88100ee7c66
+    with:
+      expected_repository: ${{ github.repository }}
+      expected_sha: ${{ github.sha }}
+
+  verify:
+    needs: call
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify same-org remote reusable caller checkout identity
+        shell: bash
+        env:
+          CHECKOUT_REPOSITORY_MATCH: ${{ needs.call.outputs.repository_match }}
+          CHECKOUT_SHA_MATCH: ${{ needs.call.outputs.sha_match }}
+        run: |
+          set -euo pipefail
+          test "${CHECKOUT_REPOSITORY_MATCH}" = true
+          test "${CHECKOUT_SHA_MATCH}" = true
