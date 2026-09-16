@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "exceptions": [
+    {
+      "repository": "gha-indie-worker-test/gha-indie-worker.rs",
+      "path": ".github/workflows/indie-protocol.yml",
+      "rule_id": "TST005",
+      "owner": "@ORESoftware",
+      "rationale": "The value is a non-resolving protocol-format fixture in the test organization and is never contacted or dispatched.",
+      "review_url": "https://github.com/gha-indie-worker-test/gha-indie-worker.rs/pull/1",
+      "expires": "2026-11-20"
+    }
+  ]
+}
