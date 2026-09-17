@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gha-indie-worker-test/gha-indie-worker.rs/contracts/json-schema/worker-canary.schema.json",
+  "description": "Independent JSON Schema Draft 2020-12 authority B for the test-org peer-authority canary. It is not generated from TypeSpec.",
+  "$defs": {
+    "AuthorityKind": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "AuthorityKind",
+      "type": "string",
+      "enum": ["typespec", "json-schema"]
+    },
+    "PeerAuthorityRegistration": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "PeerAuthorityRegistration",
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string" },
+        "authority": { "$ref": "AuthorityKind" },
+        "generatedWitnessOnly": { "type": "boolean" },
+        "owner": { "type": "string" }
+      },
+      "required": ["repository", "authority", "generatedWitnessOnly"],
+      "unevaluatedProperties": false
+    }
+  }
+}
