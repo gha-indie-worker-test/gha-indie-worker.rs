@@ -1,0 +1,75 @@
+name: certify-production-worker-74
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/certify-production-worker-74.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: certify-production-worker-74-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  K8S_PROVENANCE_COMMIT: 5cfac43c6900898f36f588d044ca34083da1c726
+  WORKER_SHA: 5a127f89e6751f1830900dc60082896bc561964d
+  WORKER_PATH: workspace/remote/deployments/build-server-rs
+  CARGO_TERM_COLOR: always
+
+jobs:
+  provenance-rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Recreate immutable source workspace
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ORESoftware/k8s-cluster
+          ref: ${{ env.K8S_PROVENANCE_COMMIT }}
+          path: workspace
+          persist-credentials: false
+
+      - name: Remove historical worker snapshot
+        shell: bash
+        run: rm -rf "$WORKER_PATH"
+
+      - name: Overlay exact production worker head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: gha-indie-worker/gha-indie-worker.rs
+          ref: ${{ env.WORKER_SHA }}
+          path: ${{ env.WORKER_PATH }}
+          persist-credentials: false
+
+      - name: Assert exact provenance layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C "$WORKER_PATH" rev-parse HEAD)" = "$WORKER_SHA"
+          test "$(git -C workspace rev-parse HEAD)" = "$K8S_PROVENANCE_COMMIT"
+          test -f "$WORKER_PATH/Cargo.toml"
+          test -f workspace/remote/libs/telemetry-rs/Cargo.toml
+          test -f workspace/remote/libs/runtime-config-client-rs/Cargo.toml
+          test -f workspace/remote/libs/nats/subject-defs/generated/rust/Cargo.toml
+          grep -F 'ORESoftware/k8s-cluster' "$WORKER_PATH/SOURCE_PROVENANCE.md"
+          grep -F "$K8S_PROVENANCE_COMMIT" "$WORKER_PATH/SOURCE_PROVENANCE.md"
+
+      - name: Install Rust 1.90.0 with clippy and rustfmt
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: 1.90.0
+          components: clippy,rustfmt
+
+      - name: Format exact worker head
+        shell: bash
+        run: cargo fmt --manifest-path "$WORKER_PATH/Cargo.toml" --all -- --check
+
+      - name: Test worker bins with locked graph
+        shell: bash
+        run: cargo test --locked --manifest-path "$WORKER_PATH/Cargo.toml" --bins
+
+      - name: Clippy worker bins with locked graph
+        shell: bash
+        run: cargo clippy --locked --manifest-path "$WORKER_PATH/Cargo.toml" --bins -- -D warnings
